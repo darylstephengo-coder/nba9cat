@@ -1,0 +1,26 @@
+# Refreshes schedule + injuries every morning and commits them, so the phone app stays current
+# without you touching a computer. Player stats (stats.nba.com) usually block cloud IPs, so
+# refresh those locally with `python data/fetch_stats.py` and push.
+name: refresh-data
+on:
+  schedule:
+    - cron: "0 12 * * *"    # 12:00 UTC daily
+  workflow_dispatch:
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pandas
+      - run: python data/schedule.py || echo "schedule fetch failed"
+      - run: python data/injuries.py || echo "injuries fetch failed"
+      - run: |
+          git config user.name "data-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add data/schedule.csv data/injuries.csv || true
+          git diff --cached --quiet || git commit -m "refresh schedule and injuries"
+          git push
